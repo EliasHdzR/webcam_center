@@ -10,7 +10,7 @@ class CameraThread(QThread):
 
     frame_signal = Signal(int, QImage)
 
-    def __init__(self, camera_index):
+    def __init__(self, camera_index, bus):
         """
         Constructor de la clase.
         :param camera_index: Entero que representa el índice de la cámara a capturar.
@@ -18,6 +18,7 @@ class CameraThread(QThread):
 
         super().__init__()
         self.camera_index = camera_index
+        self.bus = bus
         self.cap = None
         self.running = False
 
@@ -27,12 +28,18 @@ class CameraThread(QThread):
         frame_signal. Si se cierra la cámara o el hilo, se envía una imagen vacía hasta que se vuelva a abrir la cámara.
         """
 
-        self.cap = cv2.VideoCapture(self.camera_index * 2)
+        self.cap = cv2.VideoCapture(self.bus)
+
+        if not self.cap.isOpened():
+            print(f"Error al abrir la cámara {self.camera_index + 1}")
+            return
+
         self.running = True
 
         while self.cap.isOpened() and self.running:
             ret, frame = self.cap.read()
             if not ret:
+                print(f"Error al leer la cámara {self.camera_index + 1}")
                 break
             frame = self.cvimage_to_label(frame)
             self.frame_signal.emit(self.camera_index, frame)

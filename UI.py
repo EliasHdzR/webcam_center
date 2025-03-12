@@ -7,7 +7,7 @@ https://medium.com/@ilias.info.tel/display-opencv-camera-on-a-pyqt-app-446539854
 from PyQt6.QtCore import pyqtSlot as Slot
 from PyQt6.QtWidgets import QGridLayout, QWidget, QVBoxLayout, QPushButton
 from PyQt6.QtGui import QImage, QPixmap
-import subprocess, re
+import subprocess, re, glob
 from CameraThread import CameraThread
 from components.WebCamLabel import WebCamLabel
 
@@ -19,16 +19,15 @@ class MainApp(QWidget):
     def __init__(self):
         super().__init__()
         self.cameras = self.getUsbCameras()
+        print(self.cameras)
         self.camera_threads = []
         self.labels = []
         self.buttons = []
         self.init_ui()
         self.show()
-
-    def init_ui(self):
-        self.showMaximized()
         self.setWindowTitle("WebCam Center")
 
+    def init_ui(self):
         # se maneja un grid de 2x2
         grid = QGridLayout()
         self.setLayout(grid)
@@ -51,7 +50,7 @@ class MainApp(QWidget):
 
             grid.addLayout(vbox, row, col)
 
-            thread = CameraThread(i)
+            thread = CameraThread(i, cam)
             thread.frame_signal.connect(self.setImage)
             self.camera_threads.append(thread)
 
@@ -112,30 +111,8 @@ class MainApp(QWidget):
 
     @staticmethod
     def getUsbCameras():
-        """
-        Función que obtiene las cámaras conectadas a través de USB. Checa los dispositivos conectados a través de lsusb
-        y que contengan las palabras 'camera', 'webcam' o 'video' en su nombre.
-        :return:
-        """
-
-        device_re = re.compile(
-            b"Bus\\s+(?P<bus>\\d+)\\s+Device\\s+(?P<device>\\d+).+ID\\s(?P<id>\\w+:\\w+)\\s(?P<tag>.+)$", re.I
-        )
-        df = subprocess.check_output("lsusb")
-        devices, cameras = [], []
-
-        for i in df.split(b'\n'):
-            if i:
-                info = device_re.match(i)
-                if info:
-                    dinfo = info.groupdict()
-                    dinfo['device'] = f"/dev/bus/usb/{dinfo.pop('bus')}/{dinfo.pop('device')}"
-                    devices.append(dinfo)
-
-        for device in devices:
-            tag = device.get('tag').decode('utf-8').lower()
-            if 'camera' in tag or 'webcam' in tag or 'video' in tag:
-                cameras.append(device)
-
-        print(cameras)
-        return list(range(len(cameras)))
+        """Lista los dispositivos de video disponibles en /dev/videoX"""
+        usb_cameras = sorted(glob.glob('/dev/video*'))
+        print(usb_cameras)
+        usb_cameras = [cam for cam in usb_cameras if int(cam.replace('/dev/video', '')) % 2 == 0]
+        return usb_cameras
